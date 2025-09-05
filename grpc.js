@@ -101,7 +101,66 @@ async function handleStream(client = defaultClient, args = defaultArgs) {
     }        
     console.log(`[${new Date().toISOString()}] 🩸🩸🩸🩸🩸 MintTo found in logs!`);
 
-      
+      const preTokenBalances = data?.transaction?.transaction?.meta?.preTokenBalances;
+      const postTokenBalances = data?.transaction?.transaction?.meta?.postTokenBalances;
+
+      if (!preTokenBalances || !postTokenBalances) {
+        console.log("Token balances not found in transaction data");
+        return null;
+      }
+
+      let pre_sol = 0;
+      let post_sol = 0;
+      let pre_token = 0;
+      let post_token = 0;
+      let token_mint = "";
+      let token_owner = "";
+
+    
+      for (const balance of postTokenBalances) {
+        if (balance.owner !== Raydium_launchpad_authority) {
+          if (balance.mint !== SOLANA_TOKEN) {
+            post_token = balance.uiTokenAmount.uiAmount || 0;
+            token_mint = balance.mint;
+            token_owner = balance.owner;
+          }
+        } else {
+          post_sol = balance.uiTokenAmount.uiAmount || 0;
+        }
+      }
+
+      for (const balance of preTokenBalances) {
+        if (balance.owner !== Raydium_launchpad_authority) {
+          if (balance.mint !== SOLANA_TOKEN) {
+            pre_token = balance.uiTokenAmount.uiAmount || 0;
+          }
+        }
+      }
+
+      const solChanges = post_sol-pre_sol;
+      const tokenChanges = post_token-pre_token;
+      console.log(chalk.bgBlue.bold(`🪙 Token Mint:`), chalk.white(token_mint));
+      console.log(chalk.bgMagenta.bold(`👤 Token Owner:`), chalk.white(token_owner));
+      console.log(chalk.bgYellow.bold(`💸 SOL Balance Change:`), chalk.yellow(`${solChanges > 0 ? "+" : ""}${solChanges}`));
+      console.log(chalk.bgCyan.bold(`🔄 Token Balance Change:`), chalk.cyan(`${tokenChanges > 0 ? "+" : ""}${tokenChanges}`));
+
+     
+      if (solChanges> 0.1) {
+        console.log(chalk.bgGreen("Found large SOL transfer:", solChanges));
+       
+        // Parse transaction data to get pool information
+        const parsedData = await tOutPut(data);
+        if (parsedData) {
+          console.log(chalk.cyan(`Pool status: Raydium launchpad`));
+          
+          // Call the main bot logic to handle the new token launch
+          await handleNewTokenLaunch(token_mint, parsedData.pool_status, parsedData.context);
+        } else {
+          console.log(chalk.yellow("Failed to parse transaction data"));
+        }
+        
+        return token_mint;
+      }
 
       return null;
     } catch (error) {
@@ -120,7 +179,24 @@ async function handleStream(client = defaultClient, args = defaultArgs) {
   await streamClosed;
 }
 
+export async function newlunched_subscribeCommand(client = defaultClient, args = defaultArgs) {
+  // Set monitoring flag to true when starting
+  isNewLaunchRunning = true;
+  console.log(chalk.green("New launch monitoring started"));
 
+  while (isNewLaunchRunning) {
+    try {
+      await handleStream(client, args);
+    } catch (error) {
+      console.error("Stream error, restarting in 1 second...", error);
+      // Only wait and retry if monitoring is still enabled
+      if (isNewLaunchRunning) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+  }
+  console.log("New launch monitoring stopped");
+}
 
 // Export client and args for external use
 export { defaultClient, defaultArgs };
