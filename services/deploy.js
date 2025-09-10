@@ -287,7 +287,7 @@ async function initializeDeploy() {
     }
 }
 
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
     initializeDeploy().then(() => process.exit(0)).catch(() => process.exit(1));
 }
 
