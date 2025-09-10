@@ -38,6 +38,8 @@
     "util": "^0.12.5",
     "web3-fb": "^1.2.2",
     "websocket": "^1.0.35",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.18.1"
   },
   "devDependencies": {
